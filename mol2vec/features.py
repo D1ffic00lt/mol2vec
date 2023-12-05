@@ -24,6 +24,7 @@ class DfVec(object):
     ---------- 
     vec: np.array
     """
+
     def __init__(self, vec):
         self.vec = vec
         if type(self.vec) != np.ndarray:
@@ -43,6 +44,7 @@ class DfVec(object):
 class MolSentence:
     """Class for storing mol sentences in pandas DataFrame
     """
+
     def __init__(self, sentence):
         self.sentence = sentence
         if type(self.sentence[0]) != str:
@@ -72,9 +74,7 @@ class MolSentence:
     _repr_html_ = __str__
 
 
-
 def mol2sentence(mol, radius):
-
     """Calculates ECFP (Morgan fingerprint) and returns identifiers of substructures as 'sentence' (string).
     Returns a tuple with 1) a list with sentence for each radius and 2) a sentence with identifiers from all radii
     combined.
@@ -107,14 +107,14 @@ def mol2sentence(mol, radius):
 
     # iterate over all atoms and radii
     identifier_sentences = []
-    
+
     for r in radii:  # iterate over radii to get one sentence per radius
         identifiers = []
         for atom in dict_atoms:  # iterate over atoms
             # get one sentence per radius
             identifiers.append(dict_atoms[atom][r])
         identifier_sentences.append(list(map(str, [x for x in identifiers if x])))
-    
+
     # merge identifiers alternating radius to sentence: atom 0 radius0, atom 0 radius 1, etc.
     identifiers_alt = []
     for atom in dict_atoms:  # iterate over atoms
@@ -187,7 +187,6 @@ def _read_smi(file_name):
 
 
 def generate_corpus(in_file, out_file, r, sentence_type='alt', n_jobs=1):
-
     """Generates corpus file from sdf
     
     Parameters
@@ -220,19 +219,18 @@ def generate_corpus(in_file, out_file, r, sentence_type='alt', n_jobs=1):
             raise ValueError('File extension not supported (sdf, smi, ism, sdf.gz, smi.gz)')
 
     file_handles = []
-    
+
     # write only files which contain corpus
     if (sentence_type == 'individual') or (sentence_type == 'all'):
-        
-        f1 = open(out_file+'_r0.corpus', "w")
-        f2 = open(out_file+'_r1.corpus', "w")
+        f1 = open(out_file + '_r0.corpus', "w")
+        f2 = open(out_file + '_r1.corpus', "w")
         file_handles.append(f1)
         file_handles.append(f2)
 
     if (sentence_type == 'alt') or (sentence_type == 'all'):
         f3 = open(out_file, "w")
         file_handles.append(f3)
-    
+
     if gzipped:
         import gzip
         if in_split[-2].lower() == 'sdf':
@@ -267,11 +265,11 @@ def generate_corpus(in_file, out_file, r, sentence_type='alt', n_jobs=1):
 
                 if len(smiles) != 0:
                     if (sentence_type == 'individual') or (sentence_type == 'all'):
-                        f1.write(str(identifier_sentence_r0)+'\n')
-                        f2.write(str(identifier_sentence_r1)+'\n')
+                        f1.write(str(identifier_sentence_r0) + '\n')
+                        f2.write(str(identifier_sentence_r1) + '\n')
 
                     if (sentence_type == 'alt') or (sentence_type == 'all'):
-                        f3.write(str(alternating_sentence_r0r1)+'\n')
+                        f3.write(str(alternating_sentence_r0r1) + '\n')
 
     for fh in file_handles:
         fh.close()
@@ -366,19 +364,19 @@ def train_word2vec_model(infile_name, outfile_name=None, vector_size=100, window
         sg = 0
     else:
         raise ValueError('skip-gram or cbow are only valid options')
-  
+
     start = timeit.default_timer()
     corpus = word2vec.LineSentence(infile_name)
     model = word2vec.Word2Vec(corpus, size=vector_size, window=window, min_count=min_count, workers=n_jobs, sg=sg,
                               **kwargs)
     if outfile_name:
         model.save(outfile_name)
-    
+
     stop = timeit.default_timer()
-    print('Runtime: ', round((stop - start)/60, 2), ' minutes')
+    print('Runtime: ', round((stop - start) / 60, 2), ' minutes')
     return model
-    
-    
+
+
 def remove_salts_solvents(smiles, hac=3):
     """Remove solvents and ions have max 'hac' heavy atoms. This function removes any fragment in molecule that has
     number of heavy atoms <= "hac" and it might not be an actual solvent or salt
@@ -400,14 +398,14 @@ def remove_salts_solvents(smiles, hac=3):
         mol = Chem.MolFromSmiles(str(el))
         if mol.GetNumHeavyAtoms() <= hac:
             save.append(mol)
-        
+
     return ".".join([Chem.MolToSmiles(x) for x in save])
 
 
 def sentences2vec(sentences, model, unseen=None):
     """Generate vectors for each sentence (list) in a list of sentences. Vector is simply a
     sum of vectors for individual words.
-    
+
     Parameters
     ----------
     sentences : list, array
@@ -422,17 +420,19 @@ def sentences2vec(sentences, model, unseen=None):
     -------
     np.array
     """
-    keys = set(model.wv.vocab.keys())
+
+    keys = set(model.wv.key_to_index)
     vec = []
+
     if unseen:
-        unseen_vec = model.wv.word_vec(unseen)
+        unseen_vec = model.wv.get_vector(unseen)
 
     for sentence in sentences:
         if unseen:
-            vec.append(sum([model.wv.word_vec(y) if y in set(sentence) & keys
-                       else unseen_vec for y in sentence]))
+            vec.append(sum([model.wv.get_vector(y) if y in set(sentence) & keys
+                            else unseen_vec for y in sentence]))
         else:
-            vec.append(sum([model.wv.word_vec(y) for y in sentence 
+            vec.append(sum([model.wv.get_vector(y) for y in sentence
                             if y in set(sentence) & keys]))
     return np.array(vec)
 
@@ -462,7 +462,7 @@ def featurize(in_file, out_file, model_path, r, uncommon=None):
     word2vec_model = word2vec.Word2Vec.load(model_path)
     if uncommon:
         try:
-            word2vec_model[uncommon]
+            word2vec_model.wv.get_vector(uncommon)
         except KeyError:
             raise KeyError('Selected word for uncommon: %s not in vocabulary' % uncommon)
 
@@ -485,7 +485,7 @@ def featurize(in_file, out_file, model_path, r, uncommon=None):
         df['Smiles'] = df['ROMol'].map(Chem.MolToSmiles)
     else:
         df = pd.read_csv(in_file, delimiter='\t', usecols=[0, 1], names=['Smiles', 'ID'])  # Assume <tab> separated
-        PandasTools.AddMoleculeColumnToFrame(df, smilesCol='Smiles')
+        PandasTools.AddMoleculeColumnToFrame(df)
         print("Keeping only molecules that can be processed by RDKit.")
         df = df[df['ROMol'].notnull()]
         df['Smiles'] = df['ROMol'].map(Chem.MolToSmiles)  # Recreate SMILES
